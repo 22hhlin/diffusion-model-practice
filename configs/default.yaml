@@ -1,0 +1,34 @@
+# Latent Diffusion Model Configuration for MNIST
+
+# VAE settings
+vae:
+  latent_dim: 64
+  in_channels: 1
+  epochs: 30
+  lr: 1e-3
+
+# U-Net settings
+unet:
+  in_channels: 64  # Same as VAE latent_dim
+  base_ch: 128
+  time_dim: 256
+
+# Diffusion settings
+diffusion:
+  timesteps: 1000
+  beta_start: 1e-4
+  beta_end: 0.02
+  epochs: 100
+  lr: 1e-3
+
+# Training settings
+training:
+  batch_size: 128
+  num_workers: 2
+  save_dir: checkpoints
+
+# Sampling settings
+sampling:
+  num_samples: 16
+  nrow: 4
+  output_dir: outputs
