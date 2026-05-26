@@ -5,3 +5,4 @@ checkpoints/
 outputs/
 *.pt
 .ipynb_checkpoints/
+*.jsonl
