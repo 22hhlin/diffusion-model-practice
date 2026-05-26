@@ -9,6 +9,7 @@ import os
 import torch
 from PIL import Image
 from diffusers import StableDiffusionImg2ImgPipeline
+from utils import get_model_path, SD_V15_MODELSCOPE
 
 
 def main():
@@ -16,21 +17,23 @@ def main():
     parser.add_argument('--image', type=str, required=True, help='Input image path')
     parser.add_argument('--prompt', type=str, required=True, help='Text prompt')
     parser.add_argument('--negative_prompt', type=str, default='low quality, blurry, distorted')
-    parser.add_argument('--model', type=str, default='runwayml/stable-diffusion-v1-5')
+    parser.add_argument('--model', type=str, default=SD_V15_MODELSCOPE)
     parser.add_argument('--strength', type=float, default=0.75,
                         help='Denoising strength (0.0=keep original, 1.0=fully regenerate)')
     parser.add_argument('--steps', type=int, default=30)
     parser.add_argument('--guidance_scale', type=float, default=7.5)
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--output_dir', type=str, default='outputs/img2img')
+    parser.add_argument('--hf', action='store_true', help='Use HuggingFace instead of ModelScope')
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
 
     # Load pipeline
-    print(f"Loading model: {args.model}")
+    model_path = get_model_path(args.model, use_modelscope=not args.hf)
+    print(f"Loading pipeline from: {model_path}")
     pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
-        args.model,
+        model_path,
         torch_dtype=torch.float16,
         safety_checker=None,
     )

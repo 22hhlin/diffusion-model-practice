@@ -9,6 +9,7 @@ import os
 import torch
 from PIL import Image
 from diffusers import StableDiffusionInpaintPipeline
+from utils import get_model_path, SD_INPAINT_MODELSCOPE
 
 
 def main():
@@ -17,19 +18,21 @@ def main():
     parser.add_argument('--mask', type=str, required=True, help='Mask image path (white=inpaint)')
     parser.add_argument('--prompt', type=str, required=True, help='Text prompt for inpainting')
     parser.add_argument('--negative_prompt', type=str, default='low quality, blurry, distorted')
-    parser.add_argument('--model', type=str, default='runwayml/stable-diffusion-inpainting')
+    parser.add_argument('--model', type=str, default=SD_INPAINT_MODELSCOPE)
     parser.add_argument('--steps', type=int, default=30)
     parser.add_argument('--guidance_scale', type=float, default=7.5)
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--output_dir', type=str, default='outputs/inpainting')
+    parser.add_argument('--hf', action='store_true', help='Use HuggingFace instead of ModelScope')
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
 
     # Load pipeline
-    print(f"Loading model: {args.model}")
+    model_path = get_model_path(args.model, use_modelscope=not args.hf)
+    print(f"Loading pipeline from: {model_path}")
     pipe = StableDiffusionInpaintPipeline.from_pretrained(
-        args.model,
+        model_path,
         torch_dtype=torch.float16,
         safety_checker=None,
     )

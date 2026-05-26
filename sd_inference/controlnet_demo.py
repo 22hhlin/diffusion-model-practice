@@ -11,6 +11,7 @@ import numpy as np
 from PIL import Image
 from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
 from controlnet_aux import CannyDetector
+from utils import get_model_path, SD_V15_MODELSCOPE, CONTROLNET_CANNY_MODELSCOPE
 
 
 def main():
@@ -18,15 +19,16 @@ def main():
     parser.add_argument('--image', type=str, required=True, help='Input image path')
     parser.add_argument('--prompt', type=str, required=True, help='Text prompt')
     parser.add_argument('--negative_prompt', type=str, default='low quality, blurry')
-    parser.add_argument('--model', type=str, default='runwayml/stable-diffusion-v1-5')
+    parser.add_argument('--model', type=str, default=SD_V15_MODELSCOPE)
     parser.add_argument('--controlnet_model', type=str,
-                        default='lllyasviel/sd-controlnet-canny')
+                        default=CONTROLNET_CANNY_MODELSCOPE)
     parser.add_argument('--low_threshold', type=int, default=100)
     parser.add_argument('--high_threshold', type=int, default=200)
     parser.add_argument('--steps', type=int, default=30)
     parser.add_argument('--guidance_scale', type=float, default=7.5)
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--output_dir', type=str, default='outputs/controlnet')
+    parser.add_argument('--hf', action='store_true', help='Use HuggingFace instead of ModelScope')
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -44,12 +46,12 @@ def main():
     print(f"Canny edges saved: {canny_path}")
 
     # Load pipeline
-    print(f"Loading ControlNet: {args.controlnet_model}")
-    controlnet = ControlNetModel.from_pretrained(
-        args.controlnet_model, torch_dtype=torch.float16
-    )
+    cn_path = get_model_path(args.controlnet_model, use_modelscope=not args.hf)
+    model_path = get_model_path(args.model, use_modelscope=not args.hf)
+    print(f"Loading ControlNet: {cn_path}")
+    controlnet = ControlNetModel.from_pretrained(cn_path, torch_dtype=torch.float16)
     pipe = StableDiffusionControlNetPipeline.from_pretrained(
-        args.model,
+        model_path,
         controlnet=controlnet,
         torch_dtype=torch.float16,
         safety_checker=None,
