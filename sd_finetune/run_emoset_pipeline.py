@@ -3,7 +3,7 @@ EmoSet LoRA fine-tuning pipeline: collect images + caption + train.
 
 This script:
 1. Collects images from nested folders into a flat directory with sequential numbering
-2. Auto-generates captions with BLIP (v1, V100 compatible)
+2. Auto-generates captions with BLIP2
 3. Runs LoRA fine-tuning
 
 Usage:
@@ -62,8 +62,11 @@ def collect_images(image_dir, output_dir):
 
 
 def generate_captions(image_dir, output_meta, max_images=None):
-    """Generate captions with BLIP (v1, compatible with V100/older GPUs)."""
-    from transformers import BlipProcessor, BlipForConditionalGeneration
+    """Generate captions with BLIP2."""
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'sd_inference'))
+    from utils import get_model_path
+    from transformers import Blip2Processor, Blip2ForConditionalGeneration
 
     # Scan images
     images = sorted([f for f in os.listdir(image_dir)
@@ -79,16 +82,12 @@ def generate_captions(image_dir, output_meta, max_images=None):
 
     print(f"Captioning {len(images)} images...")
 
-    # Use ModelScope to download BLIP v1 (DSW can't access HuggingFace)
-    from modelscope import snapshot_download
-    model_id = "AI-ModelScope/blip-image-captioning-base"
-    print(f"Downloading BLIP from ModelScope: {model_id}")
-    local_path = snapshot_download(model_id)
-    print(f"Loaded from: {local_path}")
-
-    processor = BlipProcessor.from_pretrained(local_path)
-    model = BlipForConditionalGeneration.from_pretrained(
-        local_path, torch_dtype=torch.float32
+    # Use ModelScope for BLIP2 (DSW can't access HuggingFace)
+    blip2_path = get_model_path('AI-ModelScope/blip2-opt-2.7b')
+    print(f"Loading BLIP2 from: {blip2_path}")
+    processor = Blip2Processor.from_pretrained(blip2_path)
+    model = Blip2ForConditionalGeneration.from_pretrained(
+        blip2_path, torch_dtype=torch.float16
     ).to('cuda')
 
     metadata = []
