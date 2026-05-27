@@ -83,7 +83,13 @@ def generate_captions(image_dir, output_meta, max_images=None):
     print(f"Captioning {len(images)} images...")
 
     # Use ModelScope for BLIP2 (DSW can't access HuggingFace)
-    blip2_path = get_model_path('AI-ModelScope/blip2-opt-2.7b')
+    # Check local cache first
+    local_blip2 = '/mnt/workspace/models/modelscope/models/Salesforce/blip2-opt-2.7b'
+    if os.path.isdir(local_blip2):
+        blip2_path = local_blip2
+        print(f"Using local BLIP2: {blip2_path}")
+    else:
+        blip2_path = get_model_path('Salesforce/blip2-opt-2.7b')
     print(f"Loading BLIP2 from: {blip2_path}")
     processor = Blip2Processor.from_pretrained(blip2_path)
     model = Blip2ForConditionalGeneration.from_pretrained(
