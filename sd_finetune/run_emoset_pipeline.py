@@ -41,9 +41,9 @@ EMOTION_DESC = {
 
 
 def download_emoset(data_root):
-    """Download EmoSet from ModelScope."""
-    from modelscope import snapshot_download
+    """Download EmoSet from ModelScope using git clone (faster and more reliable)."""
     import shutil
+    import subprocess
 
     os.makedirs(data_root, exist_ok=True)
 
@@ -58,62 +58,93 @@ def download_emoset(data_root):
             return
 
     print("Downloading EmoSet from ModelScope (weisir001/EmoSet)...")
-    print("This may take a while on first run...")
+    print("Using git clone for faster download...")
 
-    # Download dataset repo - try both dataset and model repos
-    cache_dir = os.path.join(data_root, '_cache')
-    downloaded_path = None
-    for repo_type in ['dataset', 'model']:
+    # Try git clone (faster than SDK for large datasets)
+    clone_dir = os.path.join(data_root, '_emoset_repo')
+    try:
+        # Install git lfs first
+        subprocess.run(['git', 'lfs', 'install'], check=True, capture_output=True)
+
+        # Clone the dataset repo
+        cmd = [
+            'git', 'clone',
+            'https://www.modelscope.cn/datasets/weisir001/EmoSet.git',
+            clone_dir,
+        ]
+        print(f"Running: {' '.join(cmd)}")
+        subprocess.run(cmd, check=True)
+        print("Git clone complete!")
+
+        # Find image directory in cloned repo
+        src_image_dir = None
+        for candidate in [
+            os.path.join(clone_dir, 'image'),
+            os.path.join(clone_dir, 'images'),
+            os.path.join(clone_dir, 'data', 'image'),
+            clone_dir,
+        ]:
+            if os.path.isdir(candidate):
+                subdirs = [d for d in os.listdir(candidate) if os.path.isdir(os.path.join(candidate, d))]
+                if any(d in subdirs for d in ['amusement', 'anger', 'awe', 'contentment']):
+                    src_image_dir = candidate
+                    break
+
+        if src_image_dir and src_image_dir != image_dir:
+            if os.path.exists(image_dir):
+                shutil.rmtree(image_dir)
+            shutil.copytree(src_image_dir, image_dir)
+            print(f"Copied images to {image_dir}")
+        elif os.path.isdir(image_dir):
+            print(f"Images already at {image_dir}")
+        else:
+            # Try to find image dir anywhere in cloned repo
+            for root, dirs, files in os.walk(clone_dir):
+                if 'amusement' in dirs:
+                    src_image_dir = root
+                    break
+            if src_image_dir and src_image_dir != image_dir:
+                if os.path.exists(image_dir):
+                    shutil.rmtree(image_dir)
+                shutil.copytree(src_image_dir, image_dir)
+                print(f"Copied images to {image_dir}")
+            else:
+                print(f"Warning: Could not find image folder in {clone_dir}")
+                print(f"Contents: {os.listdir(clone_dir)}")
+                return
+
+        # Clean up clone directory
+        shutil.rmtree(clone_dir, ignore_errors=True)
+        print("Cleaned up clone directory")
+
+    except subprocess.CalledProcessError as e:
+        print(f"Git clone failed: {e}")
+        print("Falling back to modelscope SDK...")
         try:
-            print(f"Trying as {repo_type}...")
-            downloaded_path = snapshot_download('weisir001/EmoSet', cache_dir=cache_dir, repo_type=repo_type)
-            print(f"Found as {repo_type}: {downloaded_path}")
-            break
+            from modelscope import snapshot_download
+            cache_dir = os.path.join(data_root, '_cache')
+            for repo_type in ['dataset', 'model']:
+                try:
+                    downloaded_path = snapshot_download('weisir001/EmoSet', cache_dir=cache_dir, repo_type=repo_type)
+                    print(f"Found as {repo_type}: {downloaded_path}")
+                    break
+                except Exception as e:
+                    print(f"  Not a {repo_type}: {e}")
+            else:
+                print("Error: Could not download EmoSet")
+                return
         except Exception as e:
-            print(f"  Not a {repo_type}: {e}")
-    if downloaded_path is None:
-        print("Error: Could not find weisir001/EmoSet on ModelScope")
-        return
-    print(f"Downloaded to: {downloaded_path}")
-
-    # Find and organize image folders
-    # The dataset may have images in various structures
-    src_image_dir = None
-    for candidate in [
-        os.path.join(downloaded_path, 'image'),
-        os.path.join(downloaded_path, 'images'),
-        os.path.join(downloaded_path, 'data', 'image'),
-        downloaded_path,
-    ]:
-        if os.path.isdir(candidate):
-            # Check if this contains emotion subfolders
-            subdirs = [d for d in os.listdir(candidate) if os.path.isdir(os.path.join(candidate, d))]
-            if any(d in subdirs for d in ['amusement', 'anger', 'awe', 'contentment']):
-                src_image_dir = candidate
-                break
-
-    if src_image_dir and src_image_dir != image_dir:
-        # Copy/symlink image folder to expected location
-        if os.path.exists(image_dir):
-            shutil.rmtree(image_dir)
-        shutil.copytree(src_image_dir, image_dir)
-        print(f"Copied images to {image_dir}")
-    elif os.path.isdir(image_dir):
-        print(f"Images already at {image_dir}")
-    else:
-        print(f"Warning: Could not find image folder in {downloaded_path}")
-        print(f"Contents: {os.listdir(downloaded_path)}")
-        return
+            print(f"SDK download also failed: {e}")
+            return
 
     # Count results
-    total = sum(len([f for f in os.listdir(os.path.join(image_dir, d))
-                     if f.endswith(('.jpg', '.png'))])
-                for d in os.listdir(image_dir) if os.path.isdir(os.path.join(image_dir, d)))
-    print(f"Download complete! {total} images in {image_dir}")
-
-    # Clean up cache
-    if os.path.exists(cache_dir):
-        shutil.rmtree(cache_dir, ignore_errors=True)
+    if os.path.isdir(image_dir):
+        total = sum(len([f for f in os.listdir(os.path.join(image_dir, d))
+                         if f.endswith(('.jpg', '.png'))])
+                    for d in os.listdir(image_dir) if os.path.isdir(os.path.join(image_dir, d)))
+        print(f"Download complete! {total} images in {image_dir}")
+    else:
+        print(f"Warning: Could not find image directory at {image_dir}")
 
 
 def scan_emoset(data_root):
