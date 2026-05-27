@@ -40,8 +40,8 @@ EMOTION_DESC = {
 }
 
 
-def download_emoset(data_root):
-    """Download EmoSet from ModelScope using git clone (faster and more reliable)."""
+def download_emoset(data_root, repo_id='LH2101/EmoSet'):
+    """Download EmoSet from ModelScope using git clone."""
     import shutil
     import subprocess
 
@@ -57,31 +57,28 @@ def download_emoset(data_root):
             print(f"EmoSet already exists ({total} images), skipping download...")
             return
 
-    print("Downloading EmoSet from ModelScope (weisir001/EmoSet)...")
+    print(f"Downloading EmoSet from ModelScope ({repo_id})...")
     print("Using git clone for faster download...")
 
-    # Try git clone (faster than SDK for large datasets)
+    # Try git clone
     clone_dir = os.path.join(data_root, '_emoset_repo')
     try:
-        # Install git lfs first
         subprocess.run(['git', 'lfs', 'install'], check=True, capture_output=True)
 
-        # Clone the dataset repo
         cmd = [
             'git', 'clone',
-            'https://www.modelscope.cn/datasets/weisir001/EmoSet.git',
+            f'https://www.modelscope.cn/datasets/{repo_id}.git',
             clone_dir,
         ]
         print(f"Running: {' '.join(cmd)}")
         subprocess.run(cmd, check=True)
         print("Git clone complete!")
 
-        # Find image directory in cloned repo
+        # Find image directory - look for emotion subfolders
         src_image_dir = None
         for candidate in [
             os.path.join(clone_dir, 'image'),
             os.path.join(clone_dir, 'images'),
-            os.path.join(clone_dir, 'data', 'image'),
             clone_dir,
         ]:
             if os.path.isdir(candidate):
@@ -98,7 +95,7 @@ def download_emoset(data_root):
         elif os.path.isdir(image_dir):
             print(f"Images already at {image_dir}")
         else:
-            # Try to find image dir anywhere in cloned repo
+            # Walk to find emotion folders
             for root, dirs, files in os.walk(clone_dir):
                 if 'amusement' in dirs:
                     src_image_dir = root
@@ -109,23 +106,22 @@ def download_emoset(data_root):
                 shutil.copytree(src_image_dir, image_dir)
                 print(f"Copied images to {image_dir}")
             else:
-                print(f"Warning: Could not find image folder in {clone_dir}")
+                print(f"Warning: Could not find emotion folders in {clone_dir}")
                 print(f"Contents: {os.listdir(clone_dir)}")
                 return
 
-        # Clean up clone directory
         shutil.rmtree(clone_dir, ignore_errors=True)
         print("Cleaned up clone directory")
 
     except subprocess.CalledProcessError as e:
         print(f"Git clone failed: {e}")
-        print("Falling back to modelscope SDK...")
+        print("Trying modelscope SDK...")
         try:
             from modelscope import snapshot_download
             cache_dir = os.path.join(data_root, '_cache')
             for repo_type in ['dataset', 'model']:
                 try:
-                    downloaded_path = snapshot_download('weisir001/EmoSet', cache_dir=cache_dir, repo_type=repo_type)
+                    downloaded_path = snapshot_download(repo_id, cache_dir=cache_dir, repo_type=repo_type)
                     print(f"Found as {repo_type}: {downloaded_path}")
                     break
                 except Exception as e:
@@ -275,6 +271,8 @@ def train_lora(data_root, epochs=50, rank=4, lr=1e-4):
 def main():
     parser = argparse.ArgumentParser(description='EmoSet LoRA Pipeline')
     parser.add_argument('--data_root', type=str, default='/mnt/workspace/EmoSet')
+    parser.add_argument('--repo_id', type=str, default='LH2101/EmoSet',
+                        help='ModelScope dataset repo ID')
     parser.add_argument('--step', type=str, default='all',
                         choices=['download', 'caption', 'train', 'all'])
     parser.add_argument('--max_images', type=int, default=None,
@@ -284,7 +282,7 @@ def main():
     args = parser.parse_args()
 
     if args.step in ('download', 'all'):
-        download_emoset(args.data_root)
+        download_emoset(args.data_root, args.repo_id)
 
     if args.step in ('caption', 'all'):
         generate_captions(args.data_root, args.max_images)
