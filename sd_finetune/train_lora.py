@@ -5,6 +5,7 @@ Usage:
 """
 import argparse
 import os
+import sys
 import torch
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
@@ -12,6 +13,9 @@ from diffusers import StableDiffusionPipeline, DDPMScheduler, UNet2DConditionMod
 from transformers import CLIPTextModel, CLIPTokenizer
 from peft import LoraConfig, get_peft_model
 import json
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'sd_inference'))
+from utils import get_model_path, SD_V15_MODELSCOPE
 
 
 class ImageDataset(Dataset):
@@ -68,7 +72,8 @@ class ImageDataset(Dataset):
 def main():
     parser = argparse.ArgumentParser(description='LoRA fine-tuning for SD')
     parser.add_argument('--data_dir', type=str, required=True, help='Training data directory')
-    parser.add_argument('--model', type=str, default='runwayml/stable-diffusion-v1-5')
+    parser.add_argument('--model', type=str, default=SD_V15_MODELSCOPE)
+    parser.add_argument('--hf', action='store_true', help='Use HuggingFace instead of ModelScope')
     parser.add_argument('--prompt', type=str, default=None,
                         help='Override prompt for all images')
     parser.add_argument('--epochs', type=int, default=100)
@@ -84,8 +89,9 @@ def main():
     device = 'cuda'
 
     # Load model components
-    print(f"Loading model: {args.model}")
-    pipe = StableDiffusionPipeline.from_pretrained(args.model, torch_dtype=torch.float16)
+    model_path = get_model_path(args.model, use_modelscope=not args.hf)
+    print(f"Loading model from: {model_path}")
+    pipe = StableDiffusionPipeline.from_pretrained(model_path, torch_dtype=torch.float16)
     tokenizer = pipe.tokenizer
     text_encoder = pipe.text_encoder.to(device)
     vae = pipe.vae.to(device)
@@ -118,10 +124,10 @@ def main():
 
     # Optimizer
     optimizer = torch.optim.AdamW(unet.parameters(), lr=args.lr)
-    noise_scheduler = DDPMScheduler.from_pretrained(args.model, subfolder='scheduler')
+    noise_scheduler = DDPMScheduler.from_pretrained(model_path, subfolder='scheduler')
 
     # Training loop
-    print(f"Training for {epochs} epochs...")
+    print(f"Training for {args.epochs} epochs...")
     for epoch in range(args.epochs):
         unet.train()
         total_loss = 0
