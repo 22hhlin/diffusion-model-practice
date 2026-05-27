@@ -3,7 +3,7 @@ EmoSet LoRA fine-tuning pipeline: collect images + caption + train.
 
 This script:
 1. Collects images from nested folders into a flat directory with sequential numbering
-2. Auto-generates captions with BLIP2
+2. Auto-generates captions with BLIP (v1, V100 compatible)
 3. Runs LoRA fine-tuning
 
 Usage:
@@ -62,11 +62,8 @@ def collect_images(image_dir, output_dir):
 
 
 def generate_captions(image_dir, output_meta, max_images=None):
-    """Generate captions with BLIP2."""
-    import sys
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'sd_inference'))
-    from utils import get_model_path
-    from transformers import Blip2Processor, Blip2ForConditionalGeneration
+    """Generate captions with BLIP (v1, compatible with V100/older GPUs)."""
+    from transformers import BlipProcessor, BlipForConditionalGeneration
 
     # Scan images
     images = sorted([f for f in os.listdir(image_dir)
@@ -82,26 +79,26 @@ def generate_captions(image_dir, output_meta, max_images=None):
 
     print(f"Captioning {len(images)} images...")
 
-    # Load BLIP2 from ModelScope
-    blip2_path = get_model_path('Salesforce/blip2-opt-2.7b')
-    print(f"Loading BLIP2 from: {blip2_path}")
-    processor = Blip2Processor.from_pretrained(blip2_path)
-    model = Blip2ForConditionalGeneration.from_pretrained(
-        blip2_path, torch_dtype=torch.float16
+    # Use BLIP v1 (better V100 compatibility than BLIP2)
+    model_id = "Salesforce/blip-image-captioning-base"
+    print(f"Loading BLIP from: {model_id}")
+    processor = BlipProcessor.from_pretrained(model_id)
+    model = BlipForConditionalGeneration.from_pretrained(
+        model_id, torch_dtype=torch.float32
     ).to('cuda')
 
     metadata = []
     batch_size = 4
 
     print("Generating captions...")
-    for i in tqdm(range(0, len(images), batch_size), desc="BLIP2"):
+    for i in tqdm(range(0, len(images), batch_size), desc="BLIP"):
         batch_files = images[i:i+batch_size]
         batch_imgs = []
         for f in batch_files:
             img = Image.open(os.path.join(image_dir, f)).convert('RGB')
             batch_imgs.append(img.resize((512, 512)))
 
-        inputs = processor(images=batch_imgs, return_tensors="pt").to('cuda', torch.float16)
+        inputs = processor(images=batch_imgs, return_tensors="pt").to('cuda')
         ids = model.generate(**inputs, max_new_tokens=50)
         captions = processor.batch_decode(ids, skip_special_tokens=True)
 
