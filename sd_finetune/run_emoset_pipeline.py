@@ -65,10 +65,24 @@ def download_emoset(data_root):
     os.makedirs(image_dir, exist_ok=True)
 
     print(f"Processing {len(ds)} images...")
+    print(f"Sample item keys: {list(ds[0].keys()) if len(ds) > 0 else 'empty'}")
+
     for i, item in enumerate(tqdm(ds, desc="Saving images")):
-        # Get image and emotion label
-        image = item.get('image') or item.get('img')
-        emotion = item.get('emotion') or item.get('label', 'unknown')
+        # Get image - try common field names
+        image = None
+        for key in ['image', 'img', 'pixel_values', 'image_bytes']:
+            if key in item and item[key] is not None:
+                image = item[key]
+                break
+
+        # Get emotion label - try common field names
+        emotion = None
+        for key in ['emotion', 'label', 'emotion_label', 'category']:
+            if key in item and item[key] is not None:
+                emotion = item[key]
+                break
+        if emotion is None:
+            emotion = 'unknown'
 
         if image is None:
             continue
@@ -119,6 +133,9 @@ def scan_emoset(data_root):
 
 def generate_captions(data_root, max_images=None):
     """Generate captions with BLIP2 + emotion labels."""
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'sd_inference'))
+    from utils import get_model_path
     from transformers import Blip2Processor, Blip2ForConditionalGeneration
 
     items = scan_emoset(data_root)
@@ -129,10 +146,12 @@ def generate_captions(data_root, max_images=None):
         items = items[:max_images]
         print(f"Limited to {max_images} images")
 
-    print("Loading BLIP2...")
-    processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
+    # Use ModelScope for BLIP2 download
+    blip2_path = get_model_path('AI-ModelScope/blip2-opt-2.7b')
+    print(f"Loading BLIP2 from: {blip2_path}")
+    processor = Blip2Processor.from_pretrained(blip2_path)
     model = Blip2ForConditionalGeneration.from_pretrained(
-        "Salesforce/blip2-opt-2.7b", torch_dtype=torch.float16
+        blip2_path, torch_dtype=torch.float16
     ).to('cuda')
 
     metadata = []
@@ -200,8 +219,7 @@ def train_lora(data_root, epochs=50, rank=4, lr=1e-4):
     print(f"  Epochs: {epochs}, Rank: {rank}, LR: {lr}")
 
     # Import and run training
-    from train_lora import ImageDataset, main as train_main
-    import sys
+    from train_lora import main as train_main
 
     # Set up args
     sys.argv = [
