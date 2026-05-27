@@ -60,9 +60,20 @@ def download_emoset(data_root):
     print("Downloading EmoSet from ModelScope (weisir001/EmoSet)...")
     print("This may take a while on first run...")
 
-    # Download dataset repo
+    # Download dataset repo - try both dataset and model repos
     cache_dir = os.path.join(data_root, '_cache')
-    downloaded_path = snapshot_download('weisir001/EmoSet', cache_dir=cache_dir)
+    downloaded_path = None
+    for repo_type in ['dataset', 'model']:
+        try:
+            print(f"Trying as {repo_type}...")
+            downloaded_path = snapshot_download('weisir001/EmoSet', cache_dir=cache_dir, repo_type=repo_type)
+            print(f"Found as {repo_type}: {downloaded_path}")
+            break
+        except Exception as e:
+            print(f"  Not a {repo_type}: {e}")
+    if downloaded_path is None:
+        print("Error: Could not find weisir001/EmoSet on ModelScope")
+        return
     print(f"Downloaded to: {downloaded_path}")
 
     # Find and organize image folders
