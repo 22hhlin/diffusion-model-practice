@@ -76,13 +76,13 @@ def main():
     parser.add_argument('--hf', action='store_true', help='Use HuggingFace instead of ModelScope')
     parser.add_argument('--prompt', type=str, default=None,
                         help='Override prompt for all images')
-    parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--epochs', type=int, default=30)
+    parser.add_argument('--lr', type=float, default=5e-5)
     parser.add_argument('--batch_size', type=int, default=1)
-    parser.add_argument('--rank', type=int, default=4, help='LoRA rank')
+    parser.add_argument('--rank', type=int, default=8, help='LoRA rank')
     parser.add_argument('--resolution', type=int, default=512)
     parser.add_argument('--save_dir', type=str, default='checkpoints/lora')
-    parser.add_argument('--save_every', type=int, default=20, help='Save checkpoint every N epochs')
+    parser.add_argument('--save_every', type=int, default=10, help='Save checkpoint every N epochs')
     args = parser.parse_args()
 
     os.makedirs(args.save_dir, exist_ok=True)
@@ -105,9 +105,9 @@ def main():
     # Apply LoRA to UNet
     lora_config = LoraConfig(
         r=args.rank,
-        lora_alpha=args.rank,
+        lora_alpha=args.rank * 2,
         target_modules=['to_k', 'to_q', 'to_v', 'to_out.0'],
-        lora_dropout=0.1,
+        lora_dropout=0.05,
     )
     unet = get_peft_model(unet, lora_config)
     unet.print_trainable_parameters()
