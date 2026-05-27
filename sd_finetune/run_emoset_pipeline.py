@@ -69,8 +69,11 @@ def generate_captions(image_dir, output_meta, max_images=None):
     from transformers import Blip2Processor, Blip2ForConditionalGeneration
 
     # Scan images
-    images = sorted([f for f in os.listdir(image_dir)
+    all_files = os.listdir(image_dir)
+    print(f"Total files in {image_dir}: {len(all_files)}")
+    images = sorted([f for f in all_files
                      if os.path.splitext(f)[1].lower() in VALID_EXT])
+    print(f"Valid image files: {len(images)}")
 
     if not images:
         print(f"Error: No images found in {image_dir}")
