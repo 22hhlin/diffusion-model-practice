@@ -102,7 +102,7 @@ def generate_label_caption(emotion, use_extended=True):
     return f'a photo expressing {emotion}'
 
 
-def generate_blip2_captions(items, batch_size=8):
+def generate_blip2_captions(items, batch_size=4):
     """Generate captions using BLIP2."""
     from transformers import Blip2Processor, Blip2ForConditionalGeneration
 
