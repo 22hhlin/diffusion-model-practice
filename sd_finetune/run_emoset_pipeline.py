@@ -82,8 +82,7 @@ def generate_captions(image_dir, output_meta, max_images=None):
 
     print(f"Captioning {len(images)} images...")
 
-    # Use ModelScope for BLIP2 (DSW can't access HuggingFace)
-    # Check local cache first
+    # Load captioning model - try BLIP2 first, fallback to BLIP v1
     local_blip2 = '/mnt/workspace/models/modelscope/models/Salesforce/blip2-opt-2.7b'
     if os.path.isdir(local_blip2):
         blip2_path = local_blip2
@@ -91,16 +90,36 @@ def generate_captions(image_dir, output_meta, max_images=None):
     else:
         blip2_path = get_model_path('Salesforce/blip2-opt-2.7b')
     print(f"Loading BLIP2 from: {blip2_path}")
-    processor = Blip2Processor.from_pretrained(blip2_path)
-    model = Blip2ForConditionalGeneration.from_pretrained(
-        blip2_path, torch_dtype=torch.float16
-    ).to('cuda')
+
+    use_blip2 = True
+    try:
+        processor = Blip2Processor.from_pretrained(blip2_path, use_fast=False)
+        model = Blip2ForConditionalGeneration.from_pretrained(
+            blip2_path, torch_dtype=torch.float16
+        ).to('cuda')
+        print("BLIP2 loaded successfully!")
+    except Exception as e:
+        print(f"BLIP2 failed: {e}")
+        print("Falling back to BLIP v1...")
+        use_blip2 = False
+        from transformers import BlipProcessor, BlipForConditionalGeneration
+        local_blip1 = '/mnt/workspace/models/modelscope/models/Salesforce/blip-image-captioning-base'
+        if os.path.isdir(local_blip1):
+            blip1_path = local_blip1
+        else:
+            blip1_path = get_model_path('Salesforce/blip-image-captioning-base')
+        processor = BlipProcessor.from_pretrained(blip1_path)
+        model = BlipForConditionalGeneration.from_pretrained(
+            blip1_path, torch_dtype=torch.float32
+        ).to('cuda')
+        print("BLIP v1 loaded successfully!")
 
     metadata = []
     batch_size = 4
 
-    print("Generating captions...")
-    for i in tqdm(range(0, len(images), batch_size), desc="BLIP"):
+    model_name = "BLIP2" if use_blip2 else "BLIP"
+    print(f"Generating captions with {model_name}...")
+    for i in tqdm(range(0, len(images), batch_size), desc=model_name):
         batch_files = images[i:i+batch_size]
         batch_imgs = []
         for f in batch_files:
