@@ -79,12 +79,16 @@ def generate_captions(image_dir, output_meta, max_images=None):
 
     print(f"Captioning {len(images)} images...")
 
-    # Use BLIP v1 (better V100 compatibility than BLIP2)
-    model_id = "Salesforce/blip-image-captioning-base"
-    print(f"Loading BLIP from: {model_id}")
-    processor = BlipProcessor.from_pretrained(model_id)
+    # Use ModelScope to download BLIP v1 (DSW can't access HuggingFace)
+    from modelscope import snapshot_download
+    model_id = "AI-ModelScope/blip-image-captioning-base"
+    print(f"Downloading BLIP from ModelScope: {model_id}")
+    local_path = snapshot_download(model_id)
+    print(f"Loaded from: {local_path}")
+
+    processor = BlipProcessor.from_pretrained(local_path)
     model = BlipForConditionalGeneration.from_pretrained(
-        model_id, torch_dtype=torch.float32
+        local_path, torch_dtype=torch.float32
     ).to('cuda')
 
     metadata = []
