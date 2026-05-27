@@ -146,8 +146,12 @@ def generate_captions(data_root, max_images=None):
         items = items[:max_images]
         print(f"Limited to {max_images} images")
 
-    # Use ModelScope for BLIP2 download
-    blip2_path = get_model_path('AI-ModelScope/blip2-opt-2.7b')
+    # Use ModelScope for BLIP2 download, fallback to HuggingFace
+    try:
+        blip2_path = get_model_path('AI-ModelScope/blip2-opt-2.7b')
+    except Exception:
+        print("ModelScope BLIP2 not found, using HuggingFace...")
+        blip2_path = 'Salesforce/blip2-opt-2.7b'
     print(f"Loading BLIP2 from: {blip2_path}")
     processor = Blip2Processor.from_pretrained(blip2_path)
     model = Blip2ForConditionalGeneration.from_pretrained(
