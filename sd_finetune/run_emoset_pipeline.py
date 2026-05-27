@@ -3,7 +3,7 @@ EmoSet LoRA fine-tuning pipeline: download + caption + train.
 
 EmoSet has 8 emotion categories, 118K images, no text captions.
 This script:
-1. Downloads EmoSet-118K from Dropbox
+1. Downloads EmoSet from ModelScope (weisir001/EmoSet)
 2. Auto-generates captions with BLIP2
 3. Runs LoRA fine-tuning
 
@@ -19,7 +19,6 @@ Usage:
 import argparse
 import os
 import json
-import subprocess
 import torch
 from PIL import Image
 from tqdm import tqdm
@@ -42,35 +41,56 @@ EMOTION_DESC = {
 
 
 def download_emoset(data_root):
-    """Download EmoSet-118K from Dropbox."""
-    import urllib.request
+    """Download EmoSet from ModelScope."""
+    from modelscope.msdatasets import MsDataset
 
-    zip_path = os.path.join(data_root, 'EmoSet-118K.zip')
     os.makedirs(data_root, exist_ok=True)
 
-    if os.path.exists(os.path.join(data_root, 'image')):
-        print("EmoSet already downloaded, skipping...")
-        return
+    # Check if already downloaded
+    image_dir = os.path.join(data_root, 'image')
+    if os.path.isdir(image_dir):
+        total = sum(len(os.listdir(os.path.join(image_dir, d)))
+                    for d in os.listdir(image_dir) if os.path.isdir(os.path.join(image_dir, d)))
+        if total > 0:
+            print(f"EmoSet already exists ({total} images), skipping download...")
+            return
 
-    url = 'https://www.dropbox.com/scl/fi/myue506itjfc06m7svdw6/EmoSet-118K.zip?dl=1&rlkey=7f3oyjkr6zyndf0gau7t140rv'
+    print("Downloading EmoSet from ModelScope (weisir001/EmoSet)...")
+    print("This may take a while on first run...")
 
-    print(f"Downloading EmoSet-118K to {zip_path}...")
-    print("This may take a while (~2GB)...")
+    # Download from ModelScope
+    ds = MsDataset.load('weisir001/EmoSet', split='train')
 
-    # Try wget first (faster)
-    ret = subprocess.run(['wget', '-q', '--show-progress', '-O', zip_path, url])
-    if ret.returncode != 0:
-        print("wget failed, trying urllib...")
-        urllib.request.urlretrieve(url, zip_path)
+    # Organize into folder structure by emotion
+    os.makedirs(image_dir, exist_ok=True)
 
-    print("Extracting...")
-    subprocess.run(['unzip', '-q', zip_path, '-d', data_root])
+    print(f"Processing {len(ds)} images...")
+    for i, item in enumerate(tqdm(ds, desc="Saving images")):
+        # Get image and emotion label
+        image = item.get('image') or item.get('img')
+        emotion = item.get('emotion') or item.get('label', 'unknown')
 
-    # Clean up zip
-    if os.path.exists(zip_path):
-        os.remove(zip_path)
+        if image is None:
+            continue
+        if isinstance(image, dict) and 'bytes' in image:
+            from io import BytesIO
+            image = Image.open(BytesIO(image['bytes']))
+        if not isinstance(image, Image.Image):
+            continue
 
-    print("Download complete!")
+        # Create emotion folder
+        emotion = str(emotion).lower().replace(' ', '_')
+        emotion_dir = os.path.join(image_dir, emotion)
+        os.makedirs(emotion_dir, exist_ok=True)
+
+        # Save image
+        img_path = os.path.join(emotion_dir, f'{emotion}_{i:06d}.jpg')
+        image.convert('RGB').save(img_path)
+
+    # Count results
+    total = sum(len(os.listdir(os.path.join(image_dir, d)))
+                for d in os.listdir(image_dir) if os.path.isdir(os.path.join(image_dir, d)))
+    print(f"Download complete! {total} images saved to {image_dir}")
 
 
 def scan_emoset(data_root):
