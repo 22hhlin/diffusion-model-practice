@@ -42,14 +42,16 @@ EMOTION_DESC = {
 
 def download_emoset(data_root):
     """Download EmoSet from ModelScope."""
-    from modelscope.msdatasets import MsDataset
+    from modelscope import snapshot_download
+    import shutil
 
     os.makedirs(data_root, exist_ok=True)
 
     # Check if already downloaded
     image_dir = os.path.join(data_root, 'image')
     if os.path.isdir(image_dir):
-        total = sum(len(os.listdir(os.path.join(image_dir, d)))
+        total = sum(len([f for f in os.listdir(os.path.join(image_dir, d))
+                        if f.endswith(('.jpg', '.png'))])
                     for d in os.listdir(image_dir) if os.path.isdir(os.path.join(image_dir, d)))
         if total > 0:
             print(f"EmoSet already exists ({total} images), skipping download...")
@@ -58,53 +60,49 @@ def download_emoset(data_root):
     print("Downloading EmoSet from ModelScope (weisir001/EmoSet)...")
     print("This may take a while on first run...")
 
-    # Download from ModelScope
-    ds = MsDataset.load('weisir001/EmoSet', split='train')
+    # Download dataset repo
+    cache_dir = os.path.join(data_root, '_cache')
+    downloaded_path = snapshot_download('weisir001/EmoSet', cache_dir=cache_dir)
+    print(f"Downloaded to: {downloaded_path}")
 
-    # Organize into folder structure by emotion
-    os.makedirs(image_dir, exist_ok=True)
-
-    print(f"Processing {len(ds)} images...")
-    print(f"Sample item keys: {list(ds[0].keys()) if len(ds) > 0 else 'empty'}")
-
-    for i, item in enumerate(tqdm(ds, desc="Saving images")):
-        # Get image - try common field names
-        image = None
-        for key in ['image', 'img', 'pixel_values', 'image_bytes']:
-            if key in item and item[key] is not None:
-                image = item[key]
+    # Find and organize image folders
+    # The dataset may have images in various structures
+    src_image_dir = None
+    for candidate in [
+        os.path.join(downloaded_path, 'image'),
+        os.path.join(downloaded_path, 'images'),
+        os.path.join(downloaded_path, 'data', 'image'),
+        downloaded_path,
+    ]:
+        if os.path.isdir(candidate):
+            # Check if this contains emotion subfolders
+            subdirs = [d for d in os.listdir(candidate) if os.path.isdir(os.path.join(candidate, d))]
+            if any(d in subdirs for d in ['amusement', 'anger', 'awe', 'contentment']):
+                src_image_dir = candidate
                 break
 
-        # Get emotion label - try common field names
-        emotion = None
-        for key in ['emotion', 'label', 'emotion_label', 'category']:
-            if key in item and item[key] is not None:
-                emotion = item[key]
-                break
-        if emotion is None:
-            emotion = 'unknown'
-
-        if image is None:
-            continue
-        if isinstance(image, dict) and 'bytes' in image:
-            from io import BytesIO
-            image = Image.open(BytesIO(image['bytes']))
-        if not isinstance(image, Image.Image):
-            continue
-
-        # Create emotion folder
-        emotion = str(emotion).lower().replace(' ', '_')
-        emotion_dir = os.path.join(image_dir, emotion)
-        os.makedirs(emotion_dir, exist_ok=True)
-
-        # Save image
-        img_path = os.path.join(emotion_dir, f'{emotion}_{i:06d}.jpg')
-        image.convert('RGB').save(img_path)
+    if src_image_dir and src_image_dir != image_dir:
+        # Copy/symlink image folder to expected location
+        if os.path.exists(image_dir):
+            shutil.rmtree(image_dir)
+        shutil.copytree(src_image_dir, image_dir)
+        print(f"Copied images to {image_dir}")
+    elif os.path.isdir(image_dir):
+        print(f"Images already at {image_dir}")
+    else:
+        print(f"Warning: Could not find image folder in {downloaded_path}")
+        print(f"Contents: {os.listdir(downloaded_path)}")
+        return
 
     # Count results
-    total = sum(len(os.listdir(os.path.join(image_dir, d)))
+    total = sum(len([f for f in os.listdir(os.path.join(image_dir, d))
+                     if f.endswith(('.jpg', '.png'))])
                 for d in os.listdir(image_dir) if os.path.isdir(os.path.join(image_dir, d)))
-    print(f"Download complete! {total} images saved to {image_dir}")
+    print(f"Download complete! {total} images in {image_dir}")
+
+    # Clean up cache
+    if os.path.exists(cache_dir):
+        shutil.rmtree(cache_dir, ignore_errors=True)
 
 
 def scan_emoset(data_root):
