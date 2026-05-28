@@ -92,6 +92,7 @@ def main():
     model_path = get_model_path(args.model, use_modelscope=not args.hf)
     print(f"Loading model from: {model_path}")
     pipe = StableDiffusionPipeline.from_pretrained(model_path, torch_dtype=torch.float16)
+    pipe.enable_gradient_checkpointing()
     tokenizer = pipe.tokenizer
     text_encoder = pipe.text_encoder.to(device)
     vae = pipe.vae.to(device)
@@ -120,10 +121,16 @@ def main():
         for item in dataset.items:
             item['text'] = args.prompt
 
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
-    # Optimizer
-    optimizer = torch.optim.AdamW(unet.parameters(), lr=args.lr)
+    # Optimizer (8-bit saves ~30% memory)
+    try:
+        from bitsandbytes import AdamW8bit
+        optimizer = AdamW8bit(unet.parameters(), lr=args.lr)
+        print("Using AdamW8bit optimizer")
+    except ImportError:
+        optimizer = torch.optim.AdamW(unet.parameters(), lr=args.lr)
+        print("bitsandbytes not found, using standard AdamW")
     noise_scheduler = DDPMScheduler.from_pretrained(model_path, subfolder='scheduler')
 
     # Training loop
