@@ -163,17 +163,8 @@ async def ws_generate(websocket: WebSocket, username: str):
         while True:
             data = await websocket.receive_json()
 
-            async def progress_cb(step, total):
-                try:
-                    await websocket.send_json({
-                        "type": "progress",
-                        "step": step,
-                        "total": total,
-                    })
-                except Exception:
-                    pass
-
             if data.get("type") == "txt2img":
+                await websocket.send_json({"type": "generating"})
                 images = await model_service.txt2img(
                     prompt=data["prompt"],
                     negative_prompt=data.get("negative_prompt", "low quality, blurry"),
@@ -183,7 +174,6 @@ async def ws_generate(websocket: WebSocket, username: str):
                     num_images=data.get("num_images", 1),
                     width=data.get("width", 512),
                     height=data.get("height", 512),
-                    progress_callback=progress_cb,
                 )
                 await websocket.send_json({"type": "done", "images": images})
 

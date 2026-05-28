@@ -5,7 +5,7 @@ import torch
 import base64
 import asyncio
 from io import BytesIO
-from typing import Optional, Callable
+from typing import Optional
 from diffusers import StableDiffusionPipeline, StableDiffusionImg2ImgPipeline
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'sd_inference'))
@@ -83,19 +83,10 @@ class ModelService:
         num_images: int = 1,
         width: int = 512,
         height: int = 512,
-        progress_callback: Optional[Callable] = None,
     ) -> list[str]:
         async with self._lock:
             if not self.is_loaded():
                 self.load()
-
-            def step_callback(pipe, step, timestep, callback_kwargs):
-                if progress_callback:
-                    asyncio.run_coroutine_threadsafe(
-                        progress_callback(step, steps),
-                        asyncio.get_event_loop(),
-                    )
-                return callback_kwargs
 
             generator = self._make_generator(seed)
             images = self.pipe_txt2img(
@@ -107,7 +98,6 @@ class ModelService:
                 generator=generator,
                 width=width,
                 height=height,
-                callback_on_step_end=step_callback if progress_callback else None,
             ).images
 
             return [self._image_to_base64(img) for img in images]
@@ -122,7 +112,6 @@ class ModelService:
         guidance_scale: float = 7.5,
         seed: Optional[int] = None,
         num_images: int = 1,
-        progress_callback: Optional[Callable] = None,
     ) -> list[str]:
         async with self._lock:
             if not self.is_loaded():

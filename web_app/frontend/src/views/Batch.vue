@@ -103,7 +103,7 @@ async function handleBatch() {
       negative_prompt: form.negative_prompt,
       steps: form.steps,
       guidance_scale: form.guidance_scale,
-      seed: form.seed >= 0 ? form.seed : null,
+      seed: form.seed !== null && form.seed >= 0 ? form.seed : null,
     })
     results.value = data.results
     doneCount.value = promptList.value.length

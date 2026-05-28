@@ -139,7 +139,7 @@ async function handleGenerate() {
       negative_prompt: form.negative_prompt,
       steps: form.steps,
       guidance_scale: form.guidance_scale,
-      seed: form.seed >= 0 ? form.seed : null,
+      seed: form.seed !== null && form.seed >= 0 ? form.seed : null,
       num_images: form.num_images,
       width,
       height,

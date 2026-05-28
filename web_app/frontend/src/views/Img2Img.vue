@@ -130,7 +130,7 @@ async function handleGenerate() {
       strength: form.strength,
       steps: form.steps,
       guidance_scale: form.guidance_scale,
-      seed: form.seed >= 0 ? form.seed : null,
+      seed: form.seed !== null && form.seed >= 0 ? form.seed : null,
       num_images: form.num_images,
     })
     images.value = data.images

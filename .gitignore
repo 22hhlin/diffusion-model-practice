@@ -6,3 +6,5 @@ outputs/
 *.pt
 .ipynb_checkpoints/
 *.jsonl
+node_modules/
+dist/
