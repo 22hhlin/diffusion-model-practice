@@ -13,6 +13,7 @@ from diffusers import StableDiffusionPipeline, DDPMScheduler, UNet2DConditionMod
 from transformers import CLIPTextModel, CLIPTokenizer
 from peft import LoraConfig, get_peft_model
 import json
+from tqdm import tqdm
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'sd_inference'))
 from utils import get_model_path, SD_V15_MODELSCOPE
@@ -134,12 +135,12 @@ def main():
     noise_scheduler = DDPMScheduler.from_pretrained(model_path, subfolder='scheduler')
 
     # Training loop
-    print(f"Training for {args.epochs} epochs...")
+    print(f"Training for {args.epochs} epochs, {len(dataloader)} steps/epoch...")
     for epoch in range(args.epochs):
         unet.train()
         total_loss = 0
 
-        for batch in dataloader:
+        for batch in tqdm(dataloader, desc=f"Epoch {epoch+1}/{args.epochs}"):
             pixel_values = batch['pixel_values'].to(device, dtype=torch.float16)
             input_ids = batch['input_ids'].to(device)
 
