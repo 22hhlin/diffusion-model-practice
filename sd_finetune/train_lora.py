@@ -92,7 +92,6 @@ def main():
     model_path = get_model_path(args.model, use_modelscope=not args.hf)
     print(f"Loading model from: {model_path}")
     pipe = StableDiffusionPipeline.from_pretrained(model_path, torch_dtype=torch.float16)
-    pipe.enable_gradient_checkpointing()
     tokenizer = pipe.tokenizer
     text_encoder = pipe.text_encoder.to(device)
     vae = pipe.vae.to(device)
@@ -102,6 +101,7 @@ def main():
     text_encoder.requires_grad_(False)
     vae.requires_grad_(False)
     unet.requires_grad_(False)
+    unet.enable_gradient_checkpointing()
 
     # Apply LoRA to UNet
     lora_config = LoraConfig(
