@@ -80,7 +80,7 @@ def main():
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--rank', type=int, default=16, help='LoRA rank')
-    parser.add_argument('--resolution', type=int, default=512)
+    parser.add_argument('--resolution', type=int, default=256)
     parser.add_argument('--save_dir', type=str, default='checkpoints/lora')
     parser.add_argument('--save_every', type=int, default=10, help='Save checkpoint every N epochs')
     args = parser.parse_args()
