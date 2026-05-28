@@ -139,7 +139,7 @@ def generate_captions(image_dir, output_meta, max_images=None):
     return metadata
 
 
-def train_lora(data_root, epochs=30, rank=8, lr=5e-5):
+def train_lora(data_root, epochs=20, rank=16, lr=1e-4, batch_size=4):
     """Run LoRA fine-tuning."""
     import sys
     sys.path.insert(0, os.path.dirname(__file__))
@@ -151,7 +151,7 @@ def train_lora(data_root, epochs=30, rank=8, lr=5e-5):
 
     print(f"\nStarting LoRA training...")
     print(f"  Data: {meta_path}")
-    print(f"  Epochs: {epochs}, Rank: {rank}, LR: {lr}")
+    print(f"  Epochs: {epochs}, Rank: {rank}, LR: {lr}, Batch: {batch_size}")
 
     from train_lora import main as train_main
 
@@ -161,6 +161,7 @@ def train_lora(data_root, epochs=30, rank=8, lr=5e-5):
         '--epochs', str(epochs),
         '--rank', str(rank),
         '--lr', str(lr),
+        '--batch_size', str(batch_size),
     ]
     train_main()
 
@@ -176,9 +177,10 @@ def main():
                         choices=['collect', 'caption', 'train', 'all'])
     parser.add_argument('--max_images', type=int, default=None,
                         help='Max images for captioning (None=all)')
-    parser.add_argument('--epochs', type=int, default=30)
-    parser.add_argument('--rank', type=int, default=8)
-    parser.add_argument('--lr', type=float, default=5e-5)
+    parser.add_argument('--epochs', type=int, default=20)
+    parser.add_argument('--rank', type=int, default=16)
+    parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--batch_size', type=int, default=4)
     args = parser.parse_args()
 
     # Default data_root to parent of image_dir
@@ -196,7 +198,7 @@ def main():
         generate_captions(flat_dir, meta_path, args.max_images)
 
     if args.step in ('train', 'all'):
-        train_lora(args.data_root, args.epochs, args.rank, args.lr)
+        train_lora(args.data_root, args.epochs, args.rank, args.lr, args.batch_size)
 
     print("\n=== Pipeline Complete ===")
     print(f"Generate images: python inference_lora.py --lora_path checkpoints/lora/final --prompt 'a photo'")
