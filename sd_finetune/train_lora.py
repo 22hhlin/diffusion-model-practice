@@ -102,7 +102,6 @@ def main():
     text_encoder.requires_grad_(False)
     vae.requires_grad_(False)
     unet.requires_grad_(False)
-    unet.enable_gradient_checkpointing()
 
     # Apply LoRA to UNet
     lora_config = LoraConfig(
