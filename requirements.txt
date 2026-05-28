@@ -1,13 +1,14 @@
-torch==2.1.0+cu118
-torchvision==0.16.0+cu118
-diffusers==0.28.0
-transformers==4.40.2
-peft==0.10.0
-accelerate==0.28.0
-huggingface_hub==0.22.2
+# PyTorch is pre-installed in DSW image (2.7.0 + CUDA 12.8)
+# DO NOT install torch/torchvision here
+diffusers>=0.32.0
+transformers>=4.48.0
+peft>=0.14.0
+accelerate>=1.3.0
+huggingface_hub>=0.27.0
 modelscope>=1.11.0
 datasets>=2.16.0
 safetensors>=0.4.0
+sentencepiece>=0.2.0
 scipy>=1.11.0
 matplotlib>=3.7.0
 tqdm>=4.65.0
